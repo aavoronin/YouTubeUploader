@@ -286,7 +286,10 @@ class YoutubeUploader:
 
     def scan_uploaded_videos(self):
 
-        channel_id = channels[lang_to_channel["ja"]]
+        channel_id = channels[lang_to_channel["ru"]]
+        channel_id = channels[lang_to_channel["en"]]
+        channel_id = channels[lang_to_channel["ko"]]
+        channel_id = channels[lang_to_channel["jp"]]
 
         self.get_channel_videos(channel_id)
 
@@ -368,11 +371,12 @@ class YoutubeUploader:
         """
         return response["items"][0]
 
-    def py_autogi_upload(self, channel):
+    def py_autogi_upload(self, channel, limit = 9999):
         # Specify the directory you want to traverse
         directory = "c:/Video/UploadData/"
         move_to_directory = "c:/Video/UploadData/upload_2024/"
 
+        c = 0
         # Use glob to match the pattern '*.inf'
         for filename in glob.glob(directory + '/*.inf'):
             if channel not in channels.keys():
@@ -417,6 +421,9 @@ class YoutubeUploader:
                 break
 
             shutil.move(file_name_full, file_name_to)
+            c += 1
+            if c > limit:
+                break
 
     def press_tab(self, n):
         for _ in range(n):
