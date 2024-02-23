@@ -72,12 +72,14 @@ VALID_PRIVACY_STATUSES = ('public', 'private', 'unlisted')
 channels = {
     "GeoStatisticsEn": "UCdKcjHryHRhm5Agr3Tnnh7Q",
     "GeoStatisticsJp": "UCRo6d5bODQUKvPG9AXxEnQw",
+    "GeoStatisticsKo": "UCO4JMJinfPyFB5vtaKbVReQ",
     "GeoStatisticsGlobal": "UCebUiRqbIjS4F-7p-49fQxA",
 }
 
 lang_to_channel = {
     "en": "GeoStatisticsEn",
     "ja": "GeoStatisticsJp",
+    "ko": "GeoStatisticsKo",
     "pl": "GeoStatisticsGlobal",
     "cs": "GeoStatisticsGlobal",
     "de": "GeoStatisticsGlobal",
@@ -92,10 +94,10 @@ lang_to_channel = {
 }
 
 channel_to_date = {
-    "GeoStatisticsEn": datetime.strptime("2024-02-13T09", "%Y-%m-%dT%H"),
-    "GeoStatisticsJp": datetime.strptime("2024-02-13T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsKo": datetime.strptime("2024-02-13T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsGlobal": datetime.strptime("2024-02-19T03", "%Y-%m-%dT%H"),
+    "GeoStatisticsEn": datetime.strptime("2024-02-24T09", "%Y-%m-%dT%H"),
+    "GeoStatisticsJp": datetime.strptime("2024-02-23T23", "%Y-%m-%dT%H"),
+    "GeoStatisticsKo": datetime.strptime("2024-02-25T23", "%Y-%m-%dT%H"),
+    "GeoStatisticsGlobal": datetime.strptime("2024-02-24T03", "%Y-%m-%dT%H"),
 }
 
 DELAY = 0.5
@@ -366,15 +368,30 @@ class YoutubeUploader:
         """
         return response["items"][0]
 
-    def py_autogi_upload(self):
+    def py_autogi_upload(self, channel):
         # Specify the directory you want to traverse
         directory = "c:/Video/UploadData/"
         move_to_directory = "c:/Video/UploadData/upload_2024/"
 
         # Use glob to match the pattern '*.inf'
         for filename in glob.glob(directory + '/*.inf'):
-            file_name_full = os.path.join(directory, filename)
-            file_name_to = os.path.join(move_to_directory, filename)
+            if channel not in channels.keys():
+                print(f"channel {channels} not found")
+                continue
+
+            found = False
+            for lang in lang_to_channel.keys():
+                if filename.endswith(f"{lang}.mp4.inf"):
+                    found = True
+                    break
+
+            if not found or lang_to_channel[lang] != channel:
+                print(f"{filename} is not for {channel}")
+                continue
+
+            print(f"uploading {filename} to channel {channel}")
+            file_name_full = os.path.join(directory, os.path.basename(filename))
+            file_name_to = os.path.join(move_to_directory, os.path.basename(filename))
             with open(file_name_full, 'r') as file:
                 # Load JSON data from file
                 data = json.load(file)
