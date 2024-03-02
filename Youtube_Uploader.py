@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 import locale
 
-
 # Nono Martínez Alonso -
 # youtube.com/@NonoMartinezAlonso
 # https://github.com/youtube/api-samples/blob/master/python/upload_video.py
@@ -19,6 +18,8 @@ import os
 import random
 import time
 import glob
+import pandas as pd
+import re
 
 import google.oauth2.credentials
 import google_auth_oauthlib.flow
@@ -28,6 +29,16 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
+from action_logger import action_logger
+
+uploaded_info_folder = f"c:/Video/api/"
+
+channel_to_date = {
+    "GeoStatisticsEn": datetime.strptime("2024-03-07T18", "%Y-%m-%dT%H"),
+    "GeoStatisticsJp": datetime.strptime("2024-03-08T23", "%Y-%m-%dT%H"),
+    "GeoStatisticsKo": datetime.strptime("2024-03-09T23", "%Y-%m-%dT%H"),
+    "GeoStatisticsGlobal": datetime.strptime("2024-03-06T03", "%Y-%m-%dT%H"),
+}
 
 
 # Explicitly tell the underlying HTTP transport library not to retry, since
@@ -93,12 +104,23 @@ lang_to_channel = {
     "pt": "GeoStatisticsGlobal",
 }
 
-channel_to_date = {
-    "GeoStatisticsEn": datetime.strptime("2024-02-24T09", "%Y-%m-%dT%H"),
-    "GeoStatisticsJp": datetime.strptime("2024-02-23T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsKo": datetime.strptime("2024-02-25T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsGlobal": datetime.strptime("2024-02-24T03", "%Y-%m-%dT%H"),
-}
+lang_dict = dict(
+{
+    "en": "English (English)",
+    "ja": "日本語 (Japanese)",
+    "ko": "한국인 (Korean)",
+    "ru": "Русский (Russian)",
+    "es": "Español; castellano (Spanish; Castilian)",
+    "de": "Deutsch (German)",
+    "fr": "Français (French)",
+    "it": "Italiano (Italian)",
+    "pt": "Português (Portuguese)",
+    "vi": "Tiếng Việt (Vietnamese)",
+    "th": "แบบไทย (Thai)",
+    "pl": "Polski (Polish)",
+    "cs": "čeština (Czech)",
+    "ar": "عربي (Arabic)",
+})
 
 DELAY = 0.5
 
@@ -162,9 +184,9 @@ language_dict = {
     "ar": "Arabic"
 }
 
-
 class YoutubeUploader:
     def __init__(self, key):
+        self.log_action = action_logger()
         self.api_key = key
         self.service = None
         self.next_pub_date = pub_date(datetime.now(), 2, 9)
@@ -284,12 +306,13 @@ class YoutubeUploader:
         channel_code = channels[channel_name]
         return channel_name, channel_code
 
-    def scan_uploaded_videos(self):
+    def scan_uploaded_videos(self, lang):
 
-        channel_id = channels[lang_to_channel["ru"]]
-        channel_id = channels[lang_to_channel["en"]]
-        channel_id = channels[lang_to_channel["ko"]]
-        channel_id = channels[lang_to_channel["jp"]]
+        channel_id = channels[lang_to_channel[lang]]
+        #channel_id = channels[lang_to_channel["ru"]]
+        #channel_id = channels[lang_to_channel["en"]]
+        #channel_id = channels[lang_to_channel["ko"]]
+        #channel_id = channels[lang_to_channel["jp"]]
 
         self.get_channel_videos(channel_id)
 
@@ -317,8 +340,7 @@ class YoutubeUploader:
 
     def get_video_inf(self, video_id):
         filename = video_id + '.inf'
-        cache_folder = f"c:/Cache/api/"
-        filepath = os.path.join(cache_folder, filename).replace("/", "\\")
+        filepath = os.path.join(uploaded_info_folder, filename).replace("/", "\\")
         if os.path.exists(filepath):
             with open(filepath, "r", encoding="utf-8") as f:
                 inf = f.read()
@@ -377,8 +399,21 @@ class YoutubeUploader:
         move_to_directory = "c:/Video/UploadData/upload_2024/"
 
         c = 0
-        # Use glob to match the pattern '*.inf'
-        for filename in glob.glob(directory + '/*.inf'):
+        # Get a list of all .inf files in the directory
+        inf_files = glob.glob(directory + '/*.inf')
+        # Get the creation time of each file and sort the files based on these times
+        sorted_files = sorted(inf_files, key=os.path.getctime)
+        df = pd.DataFrame(data=sorted_files, columns=["file_name"])
+        df["created_time"] = df["file_name"].map(os.path.getctime)
+        df["lang"] = df["file_name"].str[-10:-8]
+        df['rank'] = df.sort_values(by=['lang', 'created_time'], ascending=[False, True]).groupby('lang').cumcount() + 1
+
+        for i, row in df.iterrows():
+            filename = row["file_name"]
+            print(filename)
+
+        for i, row in df.iterrows():
+            filename = row["file_name"]
             if channel not in channels.keys():
                 print(f"channel {channels} not found")
                 continue
@@ -402,22 +437,26 @@ class YoutubeUploader:
                 file.close()
 
             body = data["request_body"]
-            file_name = data["video_file_name"]
+            video_file_name = data["video_file_name"]
+            if os.path.getsize(video_file_name) < 10000:
+                print(f'file too small {video_file_name}')
+                continue
+
             lang = body["snippet"]["defaultLanguage"]
             channel_name, channel_code = self.get_channel_for_lang(lang)
 
             if channel_code is None:
-                print(f"skipping {file_name}")
+                print(f"skipping {video_file_name}")
                 continue
 
             if channel_name not in channel_to_date:
-                print(f"skipping {file_name}")
+                print(f"skipping {video_file_name}")
                 continue
 
             self.next_pub_date = channel_to_date[channel_name]
             channel_to_date[channel_name] = channel_to_date[channel_name] + timedelta(days=1)
 
-            if not self.upload_autpgi(channel_code, file_name, body, self.next_pub_date):
+            if not self.upload_autpgi(channel_code, video_file_name, body, self.next_pub_date):
                 break
 
             shutil.move(file_name_full, file_name_to)
@@ -439,6 +478,8 @@ class YoutubeUploader:
         description = body["snippet"]["description"]
         lang = body["snippet"]["defaultLanguage"]
         upload_url = f"https://studio.youtube.com/channel/{channel_code}/videos/upload?d=ud&filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D"
+        #upload_url = f"https://studio.youtube.com/channel/{channel_code}/videos/upload"
+        #upload_url = f"https://studio.youtube.com/channel/{channel_code}/analytics/tab-overview/period-default"
 
         webbrowser.open(upload_url)
         time.sleep(5)
@@ -469,7 +510,11 @@ class YoutubeUploader:
         self.press_tab(2)
 
         keyboard.write(description, delay=0.01)
-        time.sleep(120)
+        sleep_time = (os.path.getsize(file_name) // 1000 // 667) + 90
+        if sleep_time < 120:
+            sleep_time = 120
+        print(f'sleeping {sleep_time}')
+        time.sleep(sleep_time)
         self.press_tab(11)
         pyautogui.press('down')
         self.press_tab(2)
@@ -584,18 +629,54 @@ class YoutubeUploader:
 
         return center_x, center_y
 
-
     def click_next(self):
-        center_x, center_y = self.detect_image('images/Next.png')
-        pyautogui.moveTo(center_x, center_y)
-        pyautogui.click()
-        time.sleep(10)
+        while True:
+            try:
+                center_x, center_y = self.detect_image('images/Next.png')
+                pyautogui.moveTo(center_x, center_y)
+                pyautogui.click()
+                time.sleep(10)
+                return
+            except Exception as e:
+                time.sleep(10)
+                return
+
+    def click_video_best(self):
+        while True:
+            try:
+                center_x, center_y = self.detect_image('images/Video_best.png')
+                pyautogui.moveTo(center_x, center_y)
+                pyautogui.click()
+                time.sleep(3)
+                return
+            except Exception as e:
+                time.sleep(10)
+                return
 
     def click_schedule(self):
-        center_x, center_y = self.detect_image('images/Schedule.png')
-        pyautogui.moveTo(center_x, center_y)
-        pyautogui.click()
-        time.sleep(10)
+        while True:
+            try:
+                center_x, center_y = self.detect_image('images/Schedule.png')
+                pyautogui.moveTo(center_x, center_y)
+                pyautogui.click()
+                time.sleep(10)
+                return
+            except Exception as e:
+                time.sleep(10)
+                return
+
+    def click_save(self):
+        while True:
+            try:
+                center_x, center_y = self.detect_image('images/Save.png')
+                pyautogui.moveTo(center_x, center_y)
+                pyautogui.click()
+                time.sleep(10)
+                return
+            except Exception as e:
+                time.sleep(10)
+                return
+
 
     def find_language_position(self, lang):
         with open("lang_html.txt", "r", encoding="utf-8") as f:
@@ -630,6 +711,112 @@ class YoutubeUploader:
         except Exception as e:
             return False
 
+    def collect_video_groups(self):
+        files_collection = []
+        for filename in glob.glob(os.path.join(uploaded_info_folder, '*.inf')):
+            with open(os.path.join(uploaded_info_folder, filename), 'r') as file:
+                # Load JSON data from file
+                data = json.load(file)
+                files_collection.append(data)
+        groups_dict = dict()
+        for data in files_collection:
+            title = data["snippet"]["title"]
+            lang = data["snippet"]["defaultAudioLanguage"]
+            description = data["snippet"]["description"]
+            channelId = data["snippet"]["channelId"]
+            id = data["id"]
+            publishedAt = data["snippet"]["publishedAt"]
+
+            code = get_code(description)
+            if code is None:
+                continue
+            code_lang = code[-2:]
+            code_group = code[:-2]
+
+            data["code_lang"] = code_lang
+            if code_group in groups_dict:
+                groups_dict[code_group].append(data)
+            else:
+                groups_dict[code_group] = [data]
+
+        for g in groups_dict.keys():
+            groups_dict[g] = sorted(groups_dict[g], key = lambda k:k["snippet"]["title"] )
+            if len(groups_dict[g]) < 14:
+                continue
+            for data in groups_dict[g]:
+                print(f'{g}: {data["snippet"]["title"]}')
+                edit_url = f'https://studio.youtube.com/video/{data["id"]}/edit'
+                self.edit_published_video(data["id"], edit_url, data["code_lang"], [data for data in groups_dict[g]], data)
+
+        print(len(files_collection))
+
+    def edit_published_video(self, id, edit_url, lang, related, data):
+        if self.log_action.record_exists('edit_related', id):
+            return
+
+        webbrowser.open(edit_url)
+        time.sleep(10)
+        self.press_shift_tab(7)
+        self.edit_end_screen(id, lang, data)
+        self.press_shift_tab(12)
+        time.sleep(DELAY)
+        self.press_shift_tab(13)
+        for _ in range(3):
+            pyautogui.press('down')
+        for data in related:
+            related_lang = data["code_lang"]
+            url = 'https://youtu.be/' + data["id"]
+            w = f'{lang_dict[related_lang]}: {url}\n'
+            keyboard.write(w, delay=0.05)
+            time.sleep(DELAY)
+
+        self.press_tab(13)
+        pyautogui.press('enter')
+        time.sleep(DELAY)
+        self.press_tab(15)
+        self.select_lang(lang)
+        time.sleep(DELAY)
+
+        self.click_save()
+        self.log_action.log('edit_related', id)
+        print(f'updated video: https://youtu.be/{id}')
+
+    def edit_end_screen(self, id, lang, data):
+        time.sleep(DELAY)
+        pyautogui.press('enter')
+        time.sleep(8)
+        self.press_tab(5)
+        time.sleep(3)
+        pyautogui.press('enter')
+        self.click_video_best()
+        time.sleep(1)
+        self.press_shift_tab(3)
+        time.sleep(DELAY)
+        pyautogui.press('down')
+        pyautogui.press('down')
+        pyautogui.press('down')
+        pyautogui.press('enter')
+        time.sleep(3)
+        self.press_tab(3)
+        time.sleep(1)
+
+
+def get_code(s):
+    # The regex pattern to match "video code:" followed by any characters until the end of the line
+    patterns = [r"video code:\s*(.*)"
+        , r"(CONT_TERR_[a-z]{2})\n", r"(OCEAN_TERR_[a-z]{2})\n"
+                ]
+
+    # CONT_TERR_pl"
+    # OCEAN_TERR_ko
+
+    for pattern in patterns:
+        matches = re.findall(pattern, s, re.MULTILINE)
+        if len(matches) == 1:
+            code = matches[0]
+            code = code.strip()
+            return code
+    return None
 
 def extract_strings_after_s(html, s):
     # List to hold all extracted strings
