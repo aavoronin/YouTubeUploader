@@ -30,6 +30,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from action_logger import action_logger
+from collections import OrderedDict
 
 uploaded_info_folder = f"c:/Video/api/"
 
@@ -37,7 +38,7 @@ channel_to_date = {
     "GeoStatisticsEn": datetime.strptime("2024-03-07T18", "%Y-%m-%dT%H"),
     "GeoStatisticsJp": datetime.strptime("2024-03-08T23", "%Y-%m-%dT%H"),
     "GeoStatisticsKo": datetime.strptime("2024-03-09T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsGlobal": datetime.strptime("2024-03-06T03", "%Y-%m-%dT%H"),
+    "GeoStatisticsGlobal": datetime.strptime("2024-03-04T03", "%Y-%m-%dT%H"),
 }
 
 
@@ -104,13 +105,13 @@ lang_to_channel = {
     "pt": "GeoStatisticsGlobal",
 }
 
-lang_dict = dict(
+lang_dict = OrderedDict(
 {
     "en": "English (English)",
     "ja": "日本語 (Japanese)",
     "ko": "한국인 (Korean)",
     "ru": "Русский (Russian)",
-    "es": "Español; castellano (Spanish; Castilian)",
+    "es": "Español (Spanish)",
     "de": "Deutsch (German)",
     "fr": "Français (French)",
     "it": "Italiano (Italian)",
@@ -607,7 +608,7 @@ class YoutubeUploader:
         center_x = None
         center_y = None
         while center_x is None:
-            time.sleep(1)
+            time.sleep(0.1)
             # Take a screenshot of the entire screen
             screenshot = np.array(pyautogui.screenshot())
             gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
@@ -677,6 +678,20 @@ class YoutubeUploader:
                 time.sleep(10)
                 return
 
+    def click_below_video_details(self):
+        self.click_below_image('images/Video_details.png', 200, 300)
+
+    def click_below_image(self, image, dx, dy):
+        while True:
+            try:
+                center_x, center_y = self.detect_image(image)
+                pyautogui.moveTo(center_x + dx, center_y + dy)
+                pyautogui.click()
+                time.sleep(3)
+                return
+            except Exception as e:
+                time.sleep(3)
+                return
 
     def find_language_position(self, lang):
         with open("lang_html.txt", "r", encoding="utf-8") as f:
@@ -711,7 +726,21 @@ class YoutubeUploader:
         except Exception as e:
             return False
 
-    def collect_video_groups(self):
+    def wrong_account2(self):
+        try:
+            self.detect_image("images/Wrong_account2.png")
+            return True
+        except Exception as e:
+            return False
+
+    def save_gray(self):
+        try:
+            self.detect_image("images/Save_Gray.png")
+            return True
+        except Exception as e:
+            return False
+    def collect_video_groups(self, channel_lang):
+        selected_channel_id = channels[lang_to_channel[channel_lang]]
         files_collection = []
         for filename in glob.glob(os.path.join(uploaded_info_folder, '*.inf')):
             with open(os.path.join(uploaded_info_folder, filename), 'r') as file:
@@ -723,7 +752,6 @@ class YoutubeUploader:
             title = data["snippet"]["title"]
             lang = data["snippet"]["defaultAudioLanguage"]
             description = data["snippet"]["description"]
-            channelId = data["snippet"]["channelId"]
             id = data["id"]
             publishedAt = data["snippet"]["publishedAt"]
 
@@ -746,29 +774,53 @@ class YoutubeUploader:
             for data in groups_dict[g]:
                 print(f'{g}: {data["snippet"]["title"]}')
                 edit_url = f'https://studio.youtube.com/video/{data["id"]}/edit'
+                video_channelId = data["snippet"]["channelId"]
+                if selected_channel_id != video_channelId:
+                    continue
                 self.edit_published_video(data["id"], edit_url, data["code_lang"], [data for data in groups_dict[g]], data)
-
         print(len(files_collection))
 
     def edit_published_video(self, id, edit_url, lang, related, data):
         if self.log_action.record_exists('edit_related', id):
-            return
+            return False
+
+        related2 = []
+        for k in lang_dict.keys():
+            for d in related:
+                if d["code_lang"] == k:
+                    related2.append(d)
+
+        related = related2
+        #for d in related:
+        #    print(d["code_lang"])
 
         webbrowser.open(edit_url)
         time.sleep(10)
-        self.press_shift_tab(7)
-        self.edit_end_screen(id, lang, data)
-        self.press_shift_tab(12)
+        if self.wrong_account() or self.wrong_account2():
+            return False
+        if not self.save_gray():
+            return False
+
+        self.click_below_video_details()
         time.sleep(DELAY)
-        self.press_shift_tab(13)
+        pyautogui.press('home')
+        for _ in range(10):
+            pyautogui.press('up')
+
+        #self.press_shift_tab(7)
+        #self.edit_end_screen(id, lang, data)
+        #self.press_shift_tab(12)
+        #time.sleep(DELAY)
+        #self.press_shift_tab(13)
         for _ in range(3):
             pyautogui.press('down')
+        time.sleep(1)
         for data in related:
             related_lang = data["code_lang"]
             url = 'https://youtu.be/' + data["id"]
             w = f'{lang_dict[related_lang]}: {url}\n'
-            keyboard.write(w, delay=0.05)
-            time.sleep(DELAY)
+            keyboard.write(w, delay=0.01)
+            time.sleep(0.1)
 
         self.press_tab(13)
         pyautogui.press('enter')
