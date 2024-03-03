@@ -38,7 +38,7 @@ channel_to_date = {
     "GeoStatisticsEn": datetime.strptime("2024-03-07T18", "%Y-%m-%dT%H"),
     "GeoStatisticsJp": datetime.strptime("2024-03-08T23", "%Y-%m-%dT%H"),
     "GeoStatisticsKo": datetime.strptime("2024-03-09T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsGlobal": datetime.strptime("2024-03-04T03", "%Y-%m-%dT%H"),
+    "GeoStatisticsGlobal": datetime.strptime("2024-03-05T03", "%Y-%m-%dT%H"),
 }
 
 
@@ -414,7 +414,7 @@ class YoutubeUploader:
             print(filename)
 
         for i, row in df.iterrows():
-            filename = row["file_name"]
+            filename = row["file_name"].replace("\\", "/")
             if channel not in channels.keys():
                 print(f"channel {channels} not found")
                 continue
@@ -461,6 +461,9 @@ class YoutubeUploader:
                 break
 
             shutil.move(file_name_full, file_name_to)
+            self.log_action.log('uploaded_video', filename)
+            print(f'uploaded video: {filename}')
+
             c += 1
             if c > limit:
                 break
@@ -739,14 +742,47 @@ class YoutubeUploader:
             return True
         except Exception as e:
             return False
-    def collect_video_groups(self, channel_lang):
+    def update_video_descriptions(self, channel_lang):
         selected_channel_id = channels[lang_to_channel[channel_lang]]
+        groups_dict, files_collection = self.get_video_group()
+        for g in groups_dict.keys():
+            groups_dict[g] = sorted(groups_dict[g], key = lambda k:k["snippet"]["title"] )
+            if len(groups_dict[g]) < 14:
+                continue
+            for data in groups_dict[g]:
+                print(f'{g}: {data["snippet"]["title"]}')
+                edit_url = f'https://studio.youtube.com/video/{data["id"]}/edit'
+                video_channelId = data["snippet"]["channelId"]
+                if selected_channel_id != video_channelId:
+                    continue
+                self.edit_published_video(data["id"], edit_url, data["code_lang"], [data for data in groups_dict[g]], data)
+        print(len(files_collection))
+
+    def update_video_end_screens(self, channel_lang):
+        selected_channel_id = channels[lang_to_channel[channel_lang]]
+
+        groups_dict, files_collection = self.get_video_group()
+        for g in groups_dict.keys():
+            groups_dict[g] = sorted(groups_dict[g], key = lambda k:k["snippet"]["title"] )
+            if len(groups_dict[g]) < 14:
+                continue
+            for data in groups_dict[g]:
+                print(f'{g}: {data["snippet"]["title"]}')
+                edit_url = f'https://studio.youtube.com/video/{data["id"]}/edit'
+                video_channelId = data["snippet"]["channelId"]
+                if selected_channel_id != video_channelId:
+                    continue
+                self.edit_end_screens(data["id"], edit_url, data["code_lang"], [data for data in groups_dict[g]], data)
+        print(len(files_collection))
+
+    def get_video_group(self):
         files_collection = []
         for filename in glob.glob(os.path.join(uploaded_info_folder, '*.inf')):
             with open(os.path.join(uploaded_info_folder, filename), 'r') as file:
                 # Load JSON data from file
                 data = json.load(file)
                 files_collection.append(data)
+
         groups_dict = dict()
         for data in files_collection:
             title = data["snippet"]["title"]
@@ -766,41 +802,56 @@ class YoutubeUploader:
                 groups_dict[code_group].append(data)
             else:
                 groups_dict[code_group] = [data]
+        return groups_dict, files_collection
 
-        for g in groups_dict.keys():
-            groups_dict[g] = sorted(groups_dict[g], key = lambda k:k["snippet"]["title"] )
-            if len(groups_dict[g]) < 14:
-                continue
-            for data in groups_dict[g]:
-                print(f'{g}: {data["snippet"]["title"]}')
-                edit_url = f'https://studio.youtube.com/video/{data["id"]}/edit'
-                video_channelId = data["snippet"]["channelId"]
-                if selected_channel_id != video_channelId:
-                    continue
-                self.edit_published_video(data["id"], edit_url, data["code_lang"], [data for data in groups_dict[g]], data)
-        print(len(files_collection))
-
-    def edit_published_video(self, id, edit_url, lang, related, data):
-        if self.log_action.record_exists('edit_related', id):
+    def edit_end_screens(self, id, edit_url, lang, related, data):
+        if self.log_action.record_exists('edit_end_screens', id):
             return False
+        related2 = self.sort_by_language_codes(related)
+        if not self.open_video_edit(edit_url):
+            return False
+        #self.click_below_video_details()
+        #time.sleep(DELAY)
+        #pyautogui.press('home')
+        #for _ in range(10):
+        #    pyautogui.press('up')
 
+        self.press_shift_tab(7)
+        self.edit_end_screen(id, lang, data)
+        #self.press_shift_tab(12)
+        #time.sleep(DELAY)
+        #self.press_shift_tab(13)
+
+
+        #self.click_save()
+        #self.log_action.log('edit_related', id)
+        print(f'updated video: https://youtu.be/{id}')
+
+    def sort_by_language_codes(self, related):
         related2 = []
         for k in lang_dict.keys():
             for d in related:
                 if d["code_lang"] == k:
                     related2.append(d)
-
-        related = related2
-        #for d in related:
+        #for d in related2:
         #    print(d["code_lang"])
+        return related2
 
+    def open_video_edit(self, edit_url):
         webbrowser.open(edit_url)
         time.sleep(10)
         if self.wrong_account() or self.wrong_account2():
             return False
         if not self.save_gray():
             return False
+        return True
 
+    def edit_published_video(self, id, edit_url, lang, related, data):
+        if self.log_action.record_exists('edit_related', id):
+            return False
+        related2 = self.sort_by_language_codes(related)
+        if not self.open_video_edit(edit_url):
+            return False
         self.click_below_video_details()
         time.sleep(DELAY)
         pyautogui.press('home')
@@ -812,6 +863,7 @@ class YoutubeUploader:
         #self.press_shift_tab(12)
         #time.sleep(DELAY)
         #self.press_shift_tab(13)
+
         for _ in range(3):
             pyautogui.press('down')
         time.sleep(1)
@@ -844,13 +896,13 @@ class YoutubeUploader:
         time.sleep(1)
         self.press_shift_tab(3)
         time.sleep(DELAY)
-        pyautogui.press('down')
-        pyautogui.press('down')
-        pyautogui.press('down')
-        pyautogui.press('enter')
-        time.sleep(3)
-        self.press_tab(3)
-        time.sleep(1)
+        #pyautogui.press('down')
+        #pyautogui.press('down')
+        #yautogui.press('down')
+        #yautogui.press('enter')
+        #time.sleep(3)
+        #self.press_tab(3)
+        #time.sleep(1)
 
 
 def get_code(s):

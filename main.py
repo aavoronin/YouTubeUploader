@@ -28,17 +28,22 @@ y = YoutubeUploader(API_KEY)
 #y.py_autogi_upload("GeoStatisticsKo")
 #y.py_autogi_upload("GeoStatisticsJp")
 #y.py_autogi_upload("GeoStatisticsEn")
-y.py_autogi_upload("GeoStatisticsGlobal", 30)
+#y.py_autogi_upload("GeoStatisticsGlobal", 50)
 
-#y.scan_uploaded_videos("ru")
-#y.scan_uploaded_videos("ja")
-#y.scan_uploaded_videos("ko")
-#y.scan_uploaded_videos("en")
+y.scan_uploaded_videos("ru")
+y.scan_uploaded_videos("ja")
+y.scan_uploaded_videos("ko")
+y.scan_uploaded_videos("en")
 
-#y.collect_video_groups("en")
-#y.collect_video_groups("ja")
-#y.collect_video_groups("ko")
-#y.collect_video_groups("ru")
+#y.update_video_descriptions("en")
+#y.update_video_descriptions("ja")
+#y.update_video_descriptions("ko")
+#y.update_video_descriptions("ru")
+
+#y.update_video_end_screens("en")
+#y.update_video_end_screens("ja")
+#y.update_video_end_screens("ko")
+#y.update_video_end_screens("ru")
 
 
 
