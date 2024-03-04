@@ -12,11 +12,11 @@ class action_logger():
     def __init__(self):
         ensure_folder_exists(log_folder)
 
-    def log(self, action_category, video_id):
+    def log(self, action_category, video_id, info=""):
         file_name = os.path.join(log_folder, action_category + ".log")
         with open(file_name, 'a') as file:
             formatted_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-            file.write(f'{formatted_datetime} {video_id}\n')
+            file.write(f'{formatted_datetime},{video_id},{info}\n')
             file.close()
 
         pass

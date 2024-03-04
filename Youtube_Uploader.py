@@ -35,10 +35,10 @@ from collections import OrderedDict
 uploaded_info_folder = f"c:/Video/api/"
 
 channel_to_date = {
-    "GeoStatisticsEn": datetime.strptime("2024-03-07T18", "%Y-%m-%dT%H"),
-    "GeoStatisticsJp": datetime.strptime("2024-03-08T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsKo": datetime.strptime("2024-03-09T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsGlobal": datetime.strptime("2024-03-05T03", "%Y-%m-%dT%H"),
+    "GeoStatisticsEn": datetime.strptime("2024-03-22T18", "%Y-%m-%dT%H"),
+    "GeoStatisticsJp": datetime.strptime("2024-03-11T23", "%Y-%m-%dT%H"),
+    "GeoStatisticsKo": datetime.strptime("2024-03-08T23", "%Y-%m-%dT%H"),
+    "GeoStatisticsGlobal": datetime.strptime("2024-03-14T03", "%Y-%m-%dT%H"),
 }
 
 
@@ -461,7 +461,7 @@ class YoutubeUploader:
                 break
 
             shutil.move(file_name_full, file_name_to)
-            self.log_action.log('uploaded_video', filename)
+            self.log_action.log('uploaded_video', filename, datetime.strftime(self.next_pub_date, "%Y-%m-%d %H:%M:%S.%f"))
             print(f'uploaded video: {filename}')
 
             c += 1
@@ -514,11 +514,16 @@ class YoutubeUploader:
         self.press_tab(2)
 
         keyboard.write(description, delay=0.01)
-        sleep_time = (os.path.getsize(file_name) // 1000 // 667) + 90
-        if sleep_time < 120:
-            sleep_time = 120
+        #sleep_time = (os.path.getsize(file_name) // 1000 // 333) + 90
+        #if sleep_time < 120:
+        #    sleep_time = 120
+        #time.sleep(sleep_time)
+        while self.on_screen('images/Uploading.png'):
+            time.sleep(5)
+            print(f'{now().strftime("%Y-%m-%dT%H:%M:%SZ")} waiting, still uploading')
+
+        time.sleep(15)
         print(f'sleeping {sleep_time}')
-        time.sleep(sleep_time)
         self.press_tab(11)
         pyautogui.press('down')
         self.press_tab(2)
@@ -632,6 +637,14 @@ class YoutubeUploader:
             center_y = pt[1] + h // 2
 
         return center_x, center_y
+
+    def on_screen(self, image):
+        try:
+            center_x, center_y = self.detect_image(image)
+            return True
+        except Exception as e:
+            return False
+
 
     def click_next(self):
         while True:

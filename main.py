@@ -25,15 +25,16 @@ with open(key_file, "r", encoding='utf-8') as f:
     API_KEY = f.readline()
 
 y = YoutubeUploader(API_KEY)
-#y.py_autogi_upload("GeoStatisticsKo")
+
+y.py_autogi_upload("GeoStatisticsKo")
 #y.py_autogi_upload("GeoStatisticsJp")
 #y.py_autogi_upload("GeoStatisticsEn")
 #y.py_autogi_upload("GeoStatisticsGlobal", 50)
 
-y.scan_uploaded_videos("ru")
-y.scan_uploaded_videos("ja")
-y.scan_uploaded_videos("ko")
-y.scan_uploaded_videos("en")
+#y.scan_uploaded_videos("ru")
+#y.scan_uploaded_videos("ja")
+#y.scan_uploaded_videos("ko")
+#y.scan_uploaded_videos("en")
 
 #y.update_video_descriptions("en")
 #y.update_video_descriptions("ja")
