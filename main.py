@@ -26,9 +26,9 @@ with open(key_file, "r", encoding='utf-8') as f:
 
 y = YoutubeUploader(API_KEY)
 
-#time.sleep(10)
+time.sleep(10)
 #print(y.image_exists('images/limit_reaches.png', 0.95))
-print(y.image_exists_test2())
+#print(y.image_exists_test2())
 #y.image_exists('images/Show_more.png', 0.95)
 #y.detect_image4('images/Show_more.png', 0.95)
 #for i in range(100):
@@ -41,8 +41,8 @@ print(y.image_exists_test2())
 
 #y.py_autogi_upload("GeoStatisticsKo")
 #y.py_autogi_upload("GeoStatisticsJp")
-#y.py_autogi_upload("GeoStatisticsEn", 8)
-#y.py_autogi_upload("GeoStatisticsGlobal", 11)
+#y.py_autogi_upload("GeoStatisticsEn")
+#y.py_autogi_upload("GeoStatisticsGlobal")
 
 #y.scan_uploaded_videos("ru")
 #y.scan_uploaded_videos("ja")
@@ -54,9 +54,8 @@ print(y.image_exists_test2())
 #y.update_video_descriptions("ko")
 #y.update_video_descriptions("ru")
 
-
 #y.update_video_descriptions2("en")
-#y.update_video_descriptions2("ja")
+y.update_video_descriptions2("ja")
 #y.update_video_descriptions2("ko")
 #y.update_video_descriptions2("ru")
 

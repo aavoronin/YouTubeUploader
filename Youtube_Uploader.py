@@ -38,7 +38,7 @@ uploaded_info_folder = f"c:/Video/api/"
 channel_to_date = {
     "GeoStatisticsEn": datetime.strptime("2024-03-26T18", "%Y-%m-%dT%H"),
     "GeoStatisticsJp": datetime.strptime("2024-03-11T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsKo": datetime.strptime("2024-03-11T23", "%Y-%m-%dT%H"),
+    "GeoStatisticsKo": datetime.strptime("2024-03-15T23", "%Y-%m-%dT%H"),
     "GeoStatisticsGlobal": datetime.strptime("2024-03-17T03", "%Y-%m-%dT%H"),
 }
 
@@ -467,7 +467,7 @@ class YoutubeUploader:
             shutil.move(file_name_full, file_name_to)
             self.log_action.log('uploaded_video', filename, datetime.strftime(self.next_pub_date, "%Y-%m-%d %H:%M:%S.%f"))
             print(f'uploaded video: {filename}')
-            sleep_time = (os.path.getsize(video_file_name) // 1000 // 50) + 150
+            sleep_time = 20 #(os.path.getsize(video_file_name) // 1000 // 50) + 150
             time.sleep(sleep_time)
 
             c += 1
@@ -491,76 +491,135 @@ class YoutubeUploader:
         #upload_url = f"https://studio.youtube.com/channel/{channel_code}/videos/upload"
         #upload_url = f"https://studio.youtube.com/channel/{channel_code}/analytics/tab-overview/period-default"
 
-        webbrowser.open(upload_url)
-        time.sleep(15)
+        step1 = True
+        #time.sleep(10)
+        if step1:
+            webbrowser.open(upload_url)
+            time.sleep(15)
 
-        if self.wrong_account():
+            if self.wrong_account():
+                return False
+
+            self.press_tab(1)
+            time.sleep(DELAY)
+            self.press_tab(1)
+            time.sleep(DELAY)
+            self.press_tab(1)
+            pyautogui.press('enter')
+            time.sleep(DELAY)
+
+            time.sleep(5)
+            keyboard.write(file_name)
+            time.sleep(5)
+            pyautogui.press('enter')
+            time.sleep(2)
+
+        for _ in range(30):
+            if not self.images_exists_and_not_exists(['images/Next2.png'],
+                ['images/dailyLimit.png', 'images/Wrong_account2.png'], self.get_screenshot()):
+                time.sleep(2)
+            else:
+                break
+        if not self.images_exists_and_not_exists(['images/Next2.png'],
+            ['images/dailyLimit.png', 'images/Wrong_account2.png'], self.get_screenshot()):
             return False
 
-        self.press_tab(1)
-        time.sleep(DELAY)
-        self.press_tab(1)
-        time.sleep(DELAY)
-        self.press_tab(1)
-        pyautogui.press('enter')
-        time.sleep(DELAY)
+        step2 = True
+        #time.sleep(10)
+        if step2:
+            #self.shift_right(100)
+            self.home_shift_end()
+            keyboard.write(title)
+            time.sleep(1)
+            self.press_tab(2)
 
-        time.sleep(5)
-        keyboard.write(file_name)
-        time.sleep(5)
-        pyautogui.press('enter')
-        time.sleep(10)
+            keyboard.write(description, delay=0.01)
+            sleep_time = (os.path.getsize(file_name) // 1000 // 300) + 150
+            if sleep_time < 120:
+                sleep_time = 120
+            #time.sleep(sleep_time)
+            print(f'sleeping {sleep_time}')
 
-        if self.limit_reached():
-            return False
-        self.shift_right(100)
+        step3 = True
+        time.sleep(10)
+        if step3:
+            pyautogui.moveTo(600, 600)
+            while not self.images_exists_and_not_exists(['images/NotForKids.png'], [], self.get_screenshot()):
+                pyautogui.scroll(-50)
+                time.sleep(0.2)
+            pyautogui.scroll(-50)
+            self.click_image_from_file('images/NotForKids.png')
 
-        keyboard.write(title)
-        time.sleep(1)
-        self.press_tab(2)
+            pyautogui.moveTo(600, 600)
+            while not self.images_exists_and_not_exists(['images/Show_more.png'], [], self.get_screenshot()):
+                pyautogui.scroll(-50)
+                time.sleep(0.2)
+            pyautogui.scroll(-50)
+            self.click_image_from_file('images/Show_more.png')
 
-        keyboard.write(description, delay=0.01)
-        sleep_time = (os.path.getsize(file_name) // 1000 // 300) + 150
-        if sleep_time < 120:
-            sleep_time = 120
-        time.sleep(sleep_time)
-        print(f'sleeping {sleep_time}')
-        #time.sleep(15)
-        #while self.on_screen2('images/Uploading.png'):
-        #    time.sleep(15)
-        #    print(f'{datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")} waiting, still uploading')
-        #time.sleep(90)
-        self.press_tab(11)
-        pyautogui.press('down')
-        self.press_tab(2)
-        pyautogui.press('enter')
-        self.press_tab(9)
-        time.sleep(3)
+            #time.sleep(15)
+            #while self.on_screen2('images/Uploading.png'):
+            #    time.sleep(15)
+            #    print(f'{datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")} waiting, still uploading')
+            #time.sleep(90)
+            #self.press_tab(11)
+            #self.press_shift_tab(2)
+            #pyautogui.press('down')
+            #self.press_tab(2)
+            #pyautogui.press('enter')
+            self.press_tab(9)
+            time.sleep(3)
+
+        step4 = True
         time.sleep(10)
-        for tag in body["snippet"]["tags"]:
-            keyboard.write(tag)
-            keyboard.write(",")
+        if step4:
+            time.sleep(10)
+            for tag in body["snippet"]["tags"]:
+                keyboard.write(tag)
+                keyboard.write(",")
+            time.sleep(10)
+            self.press_tab(1)
+            self.select_lang(lang)
+            time.sleep(1)
+
+        step5 = True
         time.sleep(10)
-        self.press_tab(1)
-        self.select_lang(lang)
-        time.sleep(1)
-        self.click_next()
+        if step5:
+            for _ in range(300):
+                if not self.images_exists_and_not_exists(
+                        ['images/Next2.png', 'images/ChecksCompleted.png', 'images/Checks.png'],
+                        ['images/dailyLimit.png', 'images/Wrong_account2.png', 'images/processing_abandoned.png'],
+                        self.get_screenshot()):
+                    time.sleep(20)
+                else:
+                    break
+            if not self.images_exists_and_not_exists(
+                    ['images/Next2.png', 'images/ChecksCompleted.png', 'images/Checks.png'],
+                    ['images/dailyLimit.png', 'images/Wrong_account2.png', 'images/processing_abandoned.png'],
+                    self.get_screenshot()):
+                return False
+            time.sleep(20)
+            self.click_next()
+            time.sleep(10)
+            self.click_next()
+            time.sleep(2)
+            self.click_next()
+
+        step6 = True
         time.sleep(10)
-        self.click_next()
-        time.sleep(2)
-        self.click_next()
-        time.sleep(2)
-        pyautogui.press('down')
-        pyautogui.press('down')
-        self.press_tab(3)
-        pyautogui.press('enter')
-        time.sleep(2)
-        self.press_tab(1)
-        time.sleep(0.2)
-        pyautogui.press('enter')
-        time.sleep(5)
-        self.enter_pub_date(publication_date)
-        self.click_schedule()
+        if step6:
+            time.sleep(2)
+            pyautogui.press('down')
+            pyautogui.press('down')
+            self.press_tab(3)
+            pyautogui.press('enter')
+            time.sleep(2)
+            self.press_tab(1)
+            time.sleep(0.2)
+            pyautogui.press('enter')
+            time.sleep(5)
+            self.enter_pub_date(publication_date)
+            self.click_schedule()
         return True
 
     def press_until_show_more(self):
@@ -575,6 +634,13 @@ class YoutubeUploader:
             pyautogui.keyDown('shift')  # hold down the shift key
             pyautogui.press('right')  # press the right arrow key
             pyautogui.keyUp('shift')  # release the shift key
+
+    def home_shift_end(self):
+        pyautogui.keyDown('home')
+        pyautogui.keyUp('home')
+        pyautogui.keyDown('shift')
+        pyautogui.press('end')
+        pyautogui.keyUp('shift')  # release the shift key
 
     def shift_left(self, n):
         for _ in range(n):
@@ -641,6 +707,9 @@ class YoutubeUploader:
         else:
             return False
 
+    def get_screenshot(self):
+        return cv2.cvtColor(np.array(pyautogui.screenshot()), cv2.COLOR_BGR2GRAY)
+
     def detect_image(self, image_file_name):
         # Load the template image
         template = cv2.imread(image_file_name, 0)
@@ -650,8 +719,7 @@ class YoutubeUploader:
         while center_x is None:
             time.sleep(0.1)
             # Take a screenshot of the entire screen
-            screenshot = np.array(pyautogui.screenshot())
-            gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+            gray_screenshot = cv2.cvtColor(np.array(pyautogui.screenshot()), cv2.COLOR_BGR2GRAY)
 
             # Perform template matching
             res = cv2.matchTemplate(gray_screenshot, template, cv2.TM_CCOEFF_NORMED)
@@ -659,7 +727,7 @@ class YoutubeUploader:
 
             # Find the center of the matched area
             for pt in zip(*loc[::-1]):
-                cv2.rectangle(screenshot, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
+                cv2.rectangle(gray_screenshot, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
 
             if pt is None:
                 continue
@@ -744,6 +812,19 @@ class YoutubeUploader:
             except Exception as e:
                 time.sleep(10)
                 return
+
+    def click_image_from_file(self, file_name):
+        while True:
+            try:
+                center_x, center_y = self.detect_image(file_name)
+                pyautogui.moveTo(center_x, center_y)
+                pyautogui.click()
+                time.sleep(10)
+                return
+            except Exception as e:
+                time.sleep(10)
+                return
+
 
     def click_image(self, image):
         for i in range(100):
@@ -890,14 +971,9 @@ class YoutubeUploader:
                 related = [data for data in groups_dict[g]]
                 related = self.sort_by_language_codes(related)
                 related2 = [d for g2 in groups_dict2.keys() for d in groups_dict2[g2] if any(d["id"] == data["id"] for d in groups_dict2[g2])]
-                #for g2 in groups_dict2.keys():
-                #    in_group = False
-                #    for d in groups_dict2[g2]:
-                #        if d["id"] == data["id"]:
-                #            in_group = True
 
-
-                self.edit_published_video2(data["id"], edit_url, data["code_lang"], related2 + related, data)
+                if not self.edit_published_video2(data["id"], edit_url, data["code_lang"], related2 + related, data):
+                    break
         print(len(files_collection))
 
 
@@ -1016,13 +1092,25 @@ class YoutubeUploader:
     def open_video_edit(self, edit_url):
         webbrowser.open(edit_url)
         time.sleep(3)
-        for _ in range(30):
-            if self.wrong_account() or self.wrong_account2():
-                return False
-            if self.save_gray():
-                return True
-            time.sleep(3)
-        return False
+        for _ in range(300):
+            if not self.images_exists_and_not_exists(
+                    ['images/Save_Gray.png', 'images/Video_details.png'],
+                    ['images/Wrong_account2.png'],
+                    self.get_screenshot()):
+                time.sleep(2)
+            else:
+                break
+
+            #if self.wrong_account() or self.wrong_account2():
+            #    return False
+            #if self.save_gray():
+            #    return True
+        if not self.images_exists_and_not_exists(
+                ['images/Save_Gray.png', 'images/Video_details.png'],
+                ['images/Wrong_account2.png'],
+                self.get_screenshot()):
+            return False
+        return True
 
     def edit_published_video2(self, id, edit_url, lang, related, data):
         if len(related) == 0:
@@ -1232,6 +1320,31 @@ class YoutubeUploader:
                 max_threshold = max_val
 
         return max_threshold > thresold
+
+    def click_image_good(self, ifn, screenshot, thresold):
+        image_to_search = cv2.imread(ifn, cv2.IMREAD_GRAYSCALE)
+        max_threshold = 0
+        _min_val = 0
+        _max_val = 0
+        _min_loc = 0
+        _max_loc = 0
+        for j in range(-30, 30, 5):
+            factor = 1.0 + j * 0.00333
+            if factor != 1:
+                resized_image = cv2.resize(image_to_search,
+                                           (int(image_to_search.shape[1] * factor),
+                                            int(image_to_search.shape[0] * factor)), interpolation=cv2.INTER_LINEAR)
+            else:
+                resized_image = image_to_search
+
+            result = cv2.matchTemplate(screenshot, resized_image, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            if max_val >= max_threshold:
+                max_threshold = max_val
+                _min_val, _max_val, _min_loc, _max_loc = min_val, max_val, min_loc, max_loc
+
+        return max_threshold > thresold
+
 
     def images_exists_and_not_exists(self, exists, not_exists, screenshot):
         threshold = 0.9
