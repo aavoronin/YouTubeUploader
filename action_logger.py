@@ -29,3 +29,24 @@ class action_logger():
             content = file.read()
             return video_id in content
 
+    def last_time_of_record(self, action_category, video_id):
+        file_name = os.path.join(log_folder, action_category + ".log")
+        if not os.path.exists(file_name):
+            return False
+        last_time = None
+        with open(file_name, 'r') as file:
+            content = file.read()
+            for line in content.split('\n'):
+                if video_id in line:
+                    line_s = line.split(",")
+                    if len(line_s) >= 3:
+                        try:
+                            found_time = datetime.strptime(line_s[0], "%Y-%m-%d %H:%M:%S.%f")
+                        except Exception as e:
+                            found_time = datetime(1900, 1, 1)
+                    else:
+                        found_time = datetime(1900, 1, 1)
+                    if last_time is None or found_time > last_time:
+                        last_time = found_time
+
+        return last_time

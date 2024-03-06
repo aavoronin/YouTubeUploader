@@ -31,14 +31,15 @@ from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from action_logger import action_logger
 from collections import OrderedDict
+import pyperclip  # Make sure to install pyperclip using pip install pyperclip
 
 uploaded_info_folder = f"c:/Video/api/"
 
 channel_to_date = {
-    "GeoStatisticsEn": datetime.strptime("2024-03-22T18", "%Y-%m-%dT%H"),
+    "GeoStatisticsEn": datetime.strptime("2024-03-26T18", "%Y-%m-%dT%H"),
     "GeoStatisticsJp": datetime.strptime("2024-03-11T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsKo": datetime.strptime("2024-03-08T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsGlobal": datetime.strptime("2024-03-14T03", "%Y-%m-%dT%H"),
+    "GeoStatisticsKo": datetime.strptime("2024-03-11T23", "%Y-%m-%dT%H"),
+    "GeoStatisticsGlobal": datetime.strptime("2024-03-17T03", "%Y-%m-%dT%H"),
 }
 
 
@@ -407,7 +408,10 @@ class YoutubeUploader:
         df = pd.DataFrame(data=sorted_files, columns=["file_name"])
         df["created_time"] = df["file_name"].map(os.path.getctime)
         df["lang"] = df["file_name"].str[-10:-8]
+        df["file_name_base"] = df["file_name"].str[:-10]
         df['rank'] = df.sort_values(by=['lang', 'created_time'], ascending=[False, True]).groupby('lang').cumcount() + 1
+        df['min_group_type'] = df.groupby('file_name_base')['created_time'].transform('min')
+        df = df.sort_values(by='min_group_type', ascending=True)
 
         for i, row in df.iterrows():
             filename = row["file_name"]
@@ -463,9 +467,11 @@ class YoutubeUploader:
             shutil.move(file_name_full, file_name_to)
             self.log_action.log('uploaded_video', filename, datetime.strftime(self.next_pub_date, "%Y-%m-%d %H:%M:%S.%f"))
             print(f'uploaded video: {filename}')
+            sleep_time = (os.path.getsize(video_file_name) // 1000 // 50) + 150
+            time.sleep(sleep_time)
 
             c += 1
-            if c > limit:
+            if c >= limit:
                 break
 
     def press_tab(self, n):
@@ -486,7 +492,7 @@ class YoutubeUploader:
         #upload_url = f"https://studio.youtube.com/channel/{channel_code}/analytics/tab-overview/period-default"
 
         webbrowser.open(upload_url)
-        time.sleep(5)
+        time.sleep(15)
 
         if self.wrong_account():
             return False
@@ -514,23 +520,23 @@ class YoutubeUploader:
         self.press_tab(2)
 
         keyboard.write(description, delay=0.01)
-        #sleep_time = (os.path.getsize(file_name) // 1000 // 333) + 90
-        #if sleep_time < 120:
-        #    sleep_time = 120
-        #time.sleep(sleep_time)
-        while self.on_screen('images/Uploading.png'):
-            time.sleep(5)
-            print(f'{now().strftime("%Y-%m-%dT%H:%M:%SZ")} waiting, still uploading')
-
-        time.sleep(15)
+        sleep_time = (os.path.getsize(file_name) // 1000 // 300) + 150
+        if sleep_time < 120:
+            sleep_time = 120
+        time.sleep(sleep_time)
         print(f'sleeping {sleep_time}')
+        #time.sleep(15)
+        #while self.on_screen2('images/Uploading.png'):
+        #    time.sleep(15)
+        #    print(f'{datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")} waiting, still uploading')
+        #time.sleep(90)
         self.press_tab(11)
         pyautogui.press('down')
         self.press_tab(2)
         pyautogui.press('enter')
         self.press_tab(9)
         time.sleep(3)
-
+        time.sleep(10)
         for tag in body["snippet"]["tags"]:
             keyboard.write(tag)
             keyboard.write(",")
@@ -556,6 +562,13 @@ class YoutubeUploader:
         self.enter_pub_date(publication_date)
         self.click_schedule()
         return True
+
+    def press_until_show_more(self):
+
+        while not self.image_exists('images/Show_more.png', 0.95):
+            #self.press_tab(1)
+            pyautogui.scroll(-50)
+            time.sleep(0.2)
 
     def shift_right(self, n):
         for _ in range(n):
@@ -609,6 +622,25 @@ class YoutubeUploader:
             time.sleep(0.1)
         pyautogui.press('enter')
 
+    def is_image_present(self, image_path, threshold):
+        # Take a screenshot of the screen
+        screenshot = pyautogui.screenshot()
+
+        # Convert the screenshot to a numpy array
+        screenshot_np = np.array(screenshot)
+
+        # Load the image to be detected
+        image_to_detect = cv2.imread(image_path)
+
+        # Use template matching to check if the image is present in the screenshot
+        result = cv2.matchTemplate(screenshot_np, image_to_detect, cv2.TM_CCOEFF_NORMED)
+        loc = np.where(result >= threshold)
+
+        if len(loc[0]) > 0:
+            return True
+        else:
+            return False
+
     def detect_image(self, image_file_name):
         # Load the template image
         template = cv2.imread(image_file_name, 0)
@@ -638,6 +670,62 @@ class YoutubeUploader:
 
         return center_x, center_y
 
+    def detect_image4(self, image_file_name, thresold):
+        screen_width, screen_height = pyautogui.size()
+        region = (0, 0, screen_width, screen_height)
+
+        for i in range(100):
+            try:
+                threshold = 1.0 - 0.003 * i
+                # Get the full screen size
+
+                # Locate the image on the screen within the full screen region
+                locations = list(pyautogui.locateAllOnScreen(image_file_name, grayscale=True, confidence=threshold, region=region))
+
+                # Print the locations found
+                for loc in locations:
+                    print(threshold, loc)
+            except Exception as e:
+                print("Not Found")
+
+    def detect_image3(self, image_file_name, thresold):
+        # Load the template image
+        template = cv2.imread(image_file_name, 0)
+        w, h = template.shape[::-1]
+        center_x = None
+        center_y = None
+        while center_x is None:
+            time.sleep(0.1)
+            # Take a screenshot of the entire screen
+            screenshot = np.array(pyautogui.screenshot())
+            gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+
+            # Perform template matching
+            res = cv2.matchTemplate(gray_screenshot, template, cv2.TM_CCOEFF_NORMED)
+            loc = np.where(res >= thresold) # Adjust the threshold value based on your requirement
+
+            # Find the center of the matched area
+            for pt in zip(*loc[::-1]):
+                cv2.rectangle(screenshot, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
+
+            if pt is None:
+                continue
+
+            # Calculate the center of the matched area
+            center_x = pt[0] + w // 2
+            center_y = pt[1] + h // 2
+
+        return center_x, center_y
+
+
+    def on_screen2(self, image, thresold):
+        try:
+            center_x, center_y = self.detect_image2(image, thresold)
+            return True
+        except Exception as e:
+            print(e)
+            return False
+
     def on_screen(self, image):
         try:
             center_x, center_y = self.detect_image(image)
@@ -645,17 +733,26 @@ class YoutubeUploader:
         except Exception as e:
             return False
 
-
     def click_next(self):
         while True:
             try:
-                center_x, center_y = self.detect_image('images/Next.png')
+                center_x, center_y = self.detect_image('images/Next2.png')
                 pyautogui.moveTo(center_x, center_y)
                 pyautogui.click()
                 time.sleep(10)
                 return
             except Exception as e:
                 time.sleep(10)
+                return
+
+    def click_image(self, image):
+        for i in range(100):
+            try:
+                center_x, center_y = self.detect_image3(image)
+                pyautogui.moveTo(center_x, center_y)
+                pyautogui.click()
+                return
+            except Exception as e:
                 return
 
     def click_video_best(self):
@@ -771,6 +868,40 @@ class YoutubeUploader:
                 self.edit_published_video(data["id"], edit_url, data["code_lang"], [data for data in groups_dict[g]], data)
         print(len(files_collection))
 
+        related_codes = {
+            "CONT_TERR": ["OCEAN_TERR", "CTR_TERR"],
+            "OCEAN_TERR": ["CONT_TERR", "CTR_TERR"],
+        }
+
+    def update_video_descriptions2(self, channel_lang):
+        selected_channel_id = channels[lang_to_channel[channel_lang]]
+        groups_dict, files_collection = self.get_video_group()
+        groups_dict2, files_collection = self.get_video_group2()
+        for g in groups_dict.keys():
+            groups_dict[g] = sorted(groups_dict[g], key = lambda k:k["snippet"]["title"] )
+            #if len(groups_dict[g]) < 14:
+            #    continue
+            for data in groups_dict[g]:
+                print(f'{g}: {data["snippet"]["title"]}')
+                edit_url = f'https://studio.youtube.com/video/{data["id"]}/edit'
+                video_channelId = data["snippet"]["channelId"]
+                if selected_channel_id != video_channelId:
+                    continue
+                related = [data for data in groups_dict[g]]
+                related = self.sort_by_language_codes(related)
+                related2 = [d for g2 in groups_dict2.keys() for d in groups_dict2[g2] if any(d["id"] == data["id"] for d in groups_dict2[g2])]
+                #for g2 in groups_dict2.keys():
+                #    in_group = False
+                #    for d in groups_dict2[g2]:
+                #        if d["id"] == data["id"]:
+                #            in_group = True
+
+
+                self.edit_published_video2(data["id"], edit_url, data["code_lang"], related2 + related, data)
+        print(len(files_collection))
+
+
+
     def update_video_end_screens(self, channel_lang):
         selected_channel_id = channels[lang_to_channel[channel_lang]]
 
@@ -817,6 +948,38 @@ class YoutubeUploader:
                 groups_dict[code_group] = [data]
         return groups_dict, files_collection
 
+    def get_video_group2(self):
+        files_collection = []
+        for filename in glob.glob(os.path.join(uploaded_info_folder, '*.inf')):
+            with open(os.path.join(uploaded_info_folder, filename), 'r') as file:
+                # Load JSON data from file
+                data = json.load(file)
+                files_collection.append(data)
+
+        groups_dict = dict()
+        for data in files_collection:
+            title = data["snippet"]["title"]
+            lang = data["snippet"]["defaultAudioLanguage"]
+            description = data["snippet"]["description"]
+            id = data["id"]
+            publishedAt = data["snippet"]["publishedAt"]
+
+            code = get_code(description)
+            if code is None:
+                continue
+            code_lang = code[-2:]
+            code_group = code
+            code_group = code_group.replace("ASIA_", "").replace("EUROPE_", "").replace("NORTH_AMERICA_", "").replace("NORTH AMERICA_", "")
+            code_group = code_group.replace("AFRICA_", "").replace("OCEANIA_", "").replace("SOUTH_AMERICA_", "").replace("SOUTH AMERICA_", "")
+            code_group = code_group.replace("WORLD_", "").replace("__", "_").replace("__", "_").replace("__", "_").replace("__", "_")
+
+            data["code_lang"] = code_lang
+            if code_group in groups_dict:
+                groups_dict[code_group].append(data)
+            else:
+                groups_dict[code_group] = [data]
+        return groups_dict, files_collection
+
     def edit_end_screens(self, id, edit_url, lang, related, data):
         if self.log_action.record_exists('edit_end_screens', id):
             return False
@@ -852,12 +1015,90 @@ class YoutubeUploader:
 
     def open_video_edit(self, edit_url):
         webbrowser.open(edit_url)
-        time.sleep(10)
-        if self.wrong_account() or self.wrong_account2():
+        time.sleep(3)
+        for _ in range(30):
+            if self.wrong_account() or self.wrong_account2():
+                return False
+            if self.save_gray():
+                return True
+            time.sleep(3)
+        return False
+
+    def edit_published_video2(self, id, edit_url, lang, related, data):
+        if len(related) == 0:
+            return
+        last_time_edit = self.log_action.last_time_of_record('edit_related2', id)
+        if last_time_edit is not None:
+            difference = datetime.now() - last_time_edit
+            if difference < timedelta(days=5):
+                return False
+        for r in related:
+            print(r["id"], r["snippet"]["title"])
+        existing_ids = [r["id"] for r in related if id != r["id"]]
+
+        if not self.open_video_edit(edit_url):
             return False
-        if not self.save_gray():
-            return False
-        return True
+        self.click_below_video_details()
+        time.sleep(DELAY)
+
+        pyautogui.hotkey('ctrl', 'a')
+        pyautogui.hotkey('ctrl', 'c')
+        clipboard_content = pyperclip.paste()
+        ls = []
+
+        # Regular expression pattern to match YouTube URLs
+        pattern = r'https?://(?:www\.)?youtu(?:be\.com/watch\?v=|\.be/)([\w-]{11})'
+        matches = re.finditer(pattern, clipboard_content)
+        for match in matches:
+            start_index = match.start()
+            end_index = match.end()
+
+            line_start = clipboard_content.rfind('\n', 0, start_index) + 1
+            line_end = clipboard_content.find('\n', end_index)
+            if line_end == -1:  # If there's no newline after the match, use the end of the string
+                line_end = len(clipboard_content)
+            current_ids = [id for id in existing_ids if id in clipboard_content[line_start:line_end]]
+            for id2 in current_ids:
+                existing_ids.remove(id2)
+            ls.append([line_start, line_end])
+        ls.reverse()
+        for ll in ls:
+            print(f"Start Index: {ll[0]}, End Index: {ll[1]}")
+            clipboard_content = clipboard_content[:ll[0]] + clipboard_content[ll[1] + 1:]
+
+        #print(clipboard_content)
+        pyperclip.copy(clipboard_content)
+        pyautogui.hotkey('ctrl', 'v')
+        time.sleep(2)
+        pyautogui.hotkey('ctrl', 'a')
+        pyautogui.press('left')
+
+        for _ in range(3):
+            pyautogui.press('down')
+        time.sleep(1)
+        for data in related:
+            if data["id"] == id:
+                continue
+            related_lang = data["code_lang"]
+            url = 'https://youtu.be/' + data["id"]
+            if related_lang != lang:
+                w = f'{lang_dict[related_lang]}: {url}\n'
+            else:
+                w = f'{url}\n'
+            keyboard.write(w, delay=0.01)
+            time.sleep(0.1)
+
+        if last_time_edit is None:
+            self.press_tab(13)
+            pyautogui.press('enter')
+            time.sleep(DELAY)
+            self.press_tab(15)
+            self.select_lang(lang)
+            time.sleep(DELAY)
+
+        self.click_save()
+        self.log_action.log('edit_related2', id)
+        print(f'updated video: https://youtu.be/{id}')
 
     def edit_published_video(self, id, edit_url, lang, related, data):
         if self.log_action.record_exists('edit_related', id):
@@ -916,6 +1157,115 @@ class YoutubeUploader:
         #time.sleep(3)
         #self.press_tab(3)
         #time.sleep(1)
+
+    def image_exists_test(self):
+        for fn in ["c:/Py/YouTubeUploader/screens/Limit.png", "c:/Py/YouTubeUploader/screens/Uploading3.png"
+                   , "c:/Py/YouTubeUploader/screens/ShowMore_not.png"
+                   , "c:/Py/YouTubeUploader/screens/Save_gray.png"
+                    ,"c:/Py/YouTubeUploader/screens/ShowMore.png"
+                   ]:
+            screenshot = cv2.imread(fn, cv2.IMREAD_GRAYSCALE)
+            for ifn in ["c:/Py/YouTubeUploader/images/dailyLimit.png", "c:/Py/YouTubeUploader/images/Next2.png",
+                        "c:/Py/YouTubeUploader/images/Show_more3.png",
+                        "c:/Py/YouTubeUploader/images/Show_more2.png",
+                        "c:/Py/YouTubeUploader/images/Show_more.png",
+                        "c:/Py/YouTubeUploader/images/Save_Gray.png",
+                        "c:/Py/YouTubeUploader/images/Video_details.png",
+                        ]:
+                image_to_search = cv2.imread(ifn, cv2.IMREAD_GRAYSCALE)
+                j = -1
+                #if 1 ==1:
+                for j in range(-30, 30):
+                    factor = 1.0 + j * 0.00333
+                    if factor != 1:
+                        resized_image = cv2.resize(image_to_search,
+                                                   (int(image_to_search.shape[1] * factor),
+                                                    int(image_to_search.shape[0] * factor)), interpolation=cv2.INTER_LINEAR)
+                    else:
+                        resized_image = image_to_search
+
+                    for i in range(25):
+
+                        try:
+                            threshold = 1.0 - 0.03 * i
+
+                            # Use OpenCV to find the image on the screen
+                            result = cv2.matchTemplate(screenshot, resized_image, cv2.TM_CCOEFF_NORMED)
+
+                            # Find the location with the highest matching score
+                            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                            if max_val >= threshold:
+                                top_left = max_loc
+                                bottom_right = (top_left[0] + resized_image.shape[1], top_left[1] + resized_image.shape[0])
+                                #print(fn, ifn)
+                                #print(factor, threshold, min_val, max_val, min_loc, max_loc)
+                                print(f'{factor:.4f}, {threshold:.4f} {os.path.basename(fn)} {os.path.basename(ifn)}')
+                                #print(f"Image {image_file_name} found at location: {top_left}")
+                                break
+
+                                # Optionally, move the mouse to the center of the detected image and click
+                                center_x, center_y = top_left[0] + resized_image.shape[1] // 2, top_left[1] + \
+                                                                resized_image.shape[0] // 2
+                                #pyautogui.moveTo(center_x, center_y)
+                                #pyautogui.click()
+                            #else:
+                            #    print("Image not found.")
+                        except Exception as e:
+                            print(e)
+
+
+    def image_exists(self, ifn, screenshot, thresold):
+        image_to_search = cv2.imread(ifn, cv2.IMREAD_GRAYSCALE)
+        max_threshold = 0
+        for j in range(-30, 30, 5):
+            factor = 1.0 + j * 0.00333
+            if factor != 1:
+                resized_image = cv2.resize(image_to_search,
+                                           (int(image_to_search.shape[1] * factor),
+                                            int(image_to_search.shape[0] * factor)), interpolation=cv2.INTER_LINEAR)
+            else:
+                resized_image = image_to_search
+
+            result = cv2.matchTemplate(screenshot, resized_image, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            if max_val >= max_threshold:
+                max_threshold = max_val
+
+        return max_threshold > thresold
+
+    def images_exists_and_not_exists(self, exists, not_exists, screenshot):
+        threshold = 0.9
+        ok = True
+        for image_path in exists:
+            ok = ok and self.image_exists(image_path, screenshot, threshold)
+            if not ok:
+                break
+        for image_path in not_exists:
+            ok = ok and not self.image_exists(image_path, screenshot, threshold)
+            if not ok:
+                break
+        return ok
+
+    def image_exists_test2(self):
+        for fn in ["c:/Py/YouTubeUploader/screens/Limit.png", "c:/Py/YouTubeUploader/screens/Uploading3.png"
+                   , "c:/Py/YouTubeUploader/screens/ShowMore_not.png"
+                   , "c:/Py/YouTubeUploader/screens/Save_gray.png"
+                    ,"c:/Py/YouTubeUploader/screens/ShowMore.png"
+                ,"c:/Py/YouTubeUploader/screens/ChecksCompleted.png"
+                   ]:
+            screenshot = cv2.imread(fn, cv2.IMREAD_GRAYSCALE)
+            for ifn in ["c:/Py/YouTubeUploader/images/dailyLimit.png", "c:/Py/YouTubeUploader/images/Next2.png",
+                        "c:/Py/YouTubeUploader/images/Show_more3.png",
+                        "c:/Py/YouTubeUploader/images/Show_more2.png",
+                        "c:/Py/YouTubeUploader/images/Show_more.png",
+                        "c:/Py/YouTubeUploader/images/Save_Gray.png",
+                        "c:/Py/YouTubeUploader/images/Video_details.png",
+                        "c:/Py/YouTubeUploader/images/ChecksCompleted.png",
+                        ]:
+                image_to_search = cv2.imread(ifn, cv2.IMREAD_GRAYSCALE)
+                print(f'{os.path.basename(fn)} {os.path.basename(ifn)} {self.images_exists_and_not_exists([ifn], [], screenshot)}')
+                #print(f'{os.path.basename(fn)} {os.path.basename(ifn)} {self.images_exists_and_not_exists([], [ifn], screenshot)}')
+        print('done')
 
 
 def get_code(s):
