@@ -36,10 +36,10 @@ import pyperclip  # Make sure to install pyperclip using pip install pyperclip
 uploaded_info_folder = f"c:/Video/api/"
 
 channel_to_date = {
-    "GeoStatisticsEn": datetime.strptime("2024-03-26T18", "%Y-%m-%dT%H"),
-    "GeoStatisticsJp": datetime.strptime("2024-03-11T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsKo": datetime.strptime("2024-03-15T23", "%Y-%m-%dT%H"),
-    "GeoStatisticsGlobal": datetime.strptime("2024-03-17T03", "%Y-%m-%dT%H"),
+    "GeoStatisticsEn": datetime.strptime("2024-04-02T18", "%Y-%m-%dT%H"),
+    "GeoStatisticsJp": datetime.strptime("2024-03-23T22", "%Y-%m-%dT%H"),
+    "GeoStatisticsKo": datetime.strptime("2024-03-23T22", "%Y-%m-%dT%H"),
+    "GeoStatisticsGlobal": datetime.strptime("2024-03-19T03", "%Y-%m-%dT%H"),
 }
 
 
@@ -412,10 +412,9 @@ class YoutubeUploader:
         df['rank'] = df.sort_values(by=['lang', 'created_time'], ascending=[False, True]).groupby('lang').cumcount() + 1
         df['min_group_type'] = df.groupby('file_name_base')['created_time'].transform('min')
         df = df.sort_values(by='min_group_type', ascending=True)
-
-        for i, row in df.iterrows():
-            filename = row["file_name"]
-            print(filename)
+        #for i, row in df.iterrows():
+        #    filename = row["file_name"]
+        #    print(filename)
 
         for i, row in df.iterrows():
             filename = row["file_name"].replace("\\", "/")
@@ -430,7 +429,7 @@ class YoutubeUploader:
                     break
 
             if not found or lang_to_channel[lang] != channel:
-                print(f"{filename} is not for {channel}")
+                #print(f"{filename} is not for {channel}")
                 continue
 
             print(f"uploading {filename} to channel {channel}")
@@ -458,21 +457,36 @@ class YoutubeUploader:
                 print(f"skipping {video_file_name}")
                 continue
 
-            self.next_pub_date = channel_to_date[channel_name]
-            channel_to_date[channel_name] = channel_to_date[channel_name] + timedelta(days=1)
+            self.get_next_pubdate(channel_name)
+            uploads_24 = self.log_action.uploads_within_24("uploaded_video", self.get_langs_for_channel(channel_name))
+            print(f"{channel_name} uploads last 24 hours: {uploads_24}")
+            if uploads_24 > 10:
+                print(f"aborting upload for {channel_name}")
+                return
 
             if not self.upload_autpgi(channel_code, video_file_name, body, self.next_pub_date):
                 break
 
             shutil.move(file_name_full, file_name_to)
             self.log_action.log('uploaded_video', filename, datetime.strftime(self.next_pub_date, "%Y-%m-%d %H:%M:%S.%f"))
-            print(f'uploaded video: {filename}')
+            print(f'upload logged: {filename}')
             sleep_time = 20 #(os.path.getsize(video_file_name) // 1000 // 50) + 150
             time.sleep(sleep_time)
 
             c += 1
             if c >= limit:
                 break
+
+    def get_next_pubdate(self, channel_name):
+        langs = self.get_langs_for_channel(channel_name)
+        n = 1 if len(langs) == 1 else 3
+        min_date = channel_to_date[channel_name]
+        self.next_pub_date = self.log_action.last_upload_slot("uploaded_video", langs, n, min_date)
+        print(f'{channel_name} next_pub_date ({n}): {self.next_pub_date}')
+        channel_to_date[channel_name] = channel_to_date[channel_name] + timedelta(days=1)
+
+    def get_langs_for_channel(self, channel_name):
+        return [lang for lang in lang_to_channel.keys() if lang_to_channel[lang] == channel_name]
 
     def press_tab(self, n):
         for _ in range(n):
@@ -498,6 +512,12 @@ class YoutubeUploader:
             time.sleep(15)
 
             if self.wrong_account():
+                if not self.switch_account(upload_url, channel_code):
+                    return False
+
+            if not self.images_exists_and_not_exists(['images/SelectFiles.png'],
+                                                     ['images/dailyLimit.png', 'images/Wrong_account2.png'],
+                                                     self.get_screenshot()):
                 return False
 
             self.press_tab(1)
@@ -534,11 +554,11 @@ class YoutubeUploader:
             self.press_tab(2)
 
             keyboard.write(description, delay=0.01)
-            sleep_time = (os.path.getsize(file_name) // 1000 // 300) + 150
-            if sleep_time < 120:
-                sleep_time = 120
+            #sleep_time = (os.path.getsize(file_name) // 1000 // 300) + 150
+            #if sleep_time < 120:
+            #    sleep_time = 120
             #time.sleep(sleep_time)
-            print(f'sleeping {sleep_time}')
+            #print(f'sleeping {sleep_time}')
 
         step3 = True
         time.sleep(10)
@@ -585,7 +605,7 @@ class YoutubeUploader:
         step5 = True
         time.sleep(10)
         if step5:
-            for _ in range(300):
+            for _ in range(3 * 60 * 12):
                 if not self.images_exists_and_not_exists(
                         ['images/Next2.png', 'images/ChecksCompleted.png', 'images/Checks.png'],
                         ['images/dailyLimit.png', 'images/Wrong_account2.png', 'images/processing_abandoned.png'],
@@ -710,7 +730,7 @@ class YoutubeUploader:
     def get_screenshot(self):
         return cv2.cvtColor(np.array(pyautogui.screenshot()), cv2.COLOR_BGR2GRAY)
 
-    def detect_image(self, image_file_name):
+    def detect_image(self, image_file_name, threasold=0.8):
         # Load the template image
         template = cv2.imread(image_file_name, 0)
         w, h = template.shape[::-1]
@@ -723,7 +743,7 @@ class YoutubeUploader:
 
             # Perform template matching
             res = cv2.matchTemplate(gray_screenshot, template, cv2.TM_CCOEFF_NORMED)
-            loc = np.where(res >= 0.8) # Adjust the threshold value based on your requirement
+            loc = np.where(res >= threasold) # Adjust the threshold value based on your requirement
 
             # Find the center of the matched area
             for pt in zip(*loc[::-1]):
@@ -813,10 +833,10 @@ class YoutubeUploader:
                 time.sleep(10)
                 return
 
-    def click_image_from_file(self, file_name):
+    def click_image_from_file(self, file_name, threasold=0.8):
         while True:
             try:
-                center_x, center_y = self.detect_image(file_name)
+                center_x, center_y = self.detect_image(file_name, threasold)
                 pyautogui.moveTo(center_x, center_y)
                 pyautogui.click()
                 time.sleep(10)
@@ -955,6 +975,7 @@ class YoutubeUploader:
         }
 
     def update_video_descriptions2(self, channel_lang):
+        channel_name = lang_to_channel[channel_lang]
         selected_channel_id = channels[lang_to_channel[channel_lang]]
         groups_dict, files_collection = self.get_video_group()
         groups_dict2, files_collection = self.get_video_group2()
@@ -972,11 +993,9 @@ class YoutubeUploader:
                 related = self.sort_by_language_codes(related)
                 related2 = [d for g2 in groups_dict2.keys() for d in groups_dict2[g2] if any(d["id"] == data["id"] for d in groups_dict2[g2])]
 
-                if not self.edit_published_video2(data["id"], edit_url, data["code_lang"], related2 + related, data):
+                if not self.edit_published_video2(data["id"], edit_url, data["code_lang"], related2 + related, data, channel_name):
                     break
         print(len(files_collection))
-
-
 
     def update_video_end_screens(self, channel_lang):
         selected_channel_id = channels[lang_to_channel[channel_lang]]
@@ -1089,10 +1108,15 @@ class YoutubeUploader:
         #    print(d["code_lang"])
         return related2
 
-    def open_video_edit(self, edit_url):
+    def open_video_edit(self, edit_url, channel_name):
         webbrowser.open(edit_url)
         time.sleep(3)
-        for _ in range(300):
+        #if self.wrong_account():
+        #    if not self.switch_account(edit_url, channel_name):
+        #        return False
+
+        for _ in range(30
+                       ):
             if not self.images_exists_and_not_exists(
                     ['images/Save_Gray.png', 'images/Video_details.png'],
                     ['images/Wrong_account2.png'],
@@ -1112,7 +1136,7 @@ class YoutubeUploader:
             return False
         return True
 
-    def edit_published_video2(self, id, edit_url, lang, related, data):
+    def edit_published_video2(self, id, edit_url, lang, related, data, channel_name):
         if len(related) == 0:
             return
         last_time_edit = self.log_action.last_time_of_record('edit_related2', id)
@@ -1124,7 +1148,7 @@ class YoutubeUploader:
             print(r["id"], r["snippet"]["title"])
         existing_ids = [r["id"] for r in related if id != r["id"]]
 
-        if not self.open_video_edit(edit_url):
+        if not self.open_video_edit(edit_url, channel_name):
             return False
         self.click_below_video_details()
         time.sleep(DELAY)
@@ -1159,10 +1183,18 @@ class YoutubeUploader:
         pyautogui.hotkey('ctrl', 'v')
         time.sleep(2)
         pyautogui.hotkey('ctrl', 'a')
-        pyautogui.press('left')
+        if lang not in ["ar"]:
+            pyautogui.press('left')
+            for _ in range(3):
+                pyautogui.press('down')
+        else:
+            pyautogui.press('left')
+            for _ in range(100):
+                pyautogui.press('up')
+            for _ in range(3):
+                pyautogui.press('down')
+            pyautogui.press('home')
 
-        for _ in range(3):
-            pyautogui.press('down')
         time.sleep(1)
         for data in related:
             if data["id"] == id:
@@ -1379,6 +1411,26 @@ class YoutubeUploader:
                 print(f'{os.path.basename(fn)} {os.path.basename(ifn)} {self.images_exists_and_not_exists([ifn], [], screenshot)}')
                 #print(f'{os.path.basename(fn)} {os.path.basename(ifn)} {self.images_exists_and_not_exists([], [ifn], screenshot)}')
         print('done')
+
+    def switch_account(self, upload_url, channel_code):
+        d = 5
+        self.click_image_from_file('images/SwitchAccount.png')
+        for channel in channels:
+            if channel_code == channels[channel]:
+                time.sleep(d)
+                self.click_image_from_file(f'images/{channel}.png', 0.92)
+                time.sleep(d)
+                if self.images_exists_and_not_exists(['images/GotIt.png'], [], self.get_screenshot()):
+                    self.click_image_from_file(f'images/GotIt.png')
+                time.sleep(d)
+                webbrowser.open(upload_url)
+                time.sleep(d)
+                if self.wrong_account():
+                    return False
+                return True
+        return False
+
+
 
 
 def get_code(s):
