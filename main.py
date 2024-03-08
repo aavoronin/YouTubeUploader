@@ -28,16 +28,12 @@ with open(key_file, "r", encoding='utf-8') as f:
     API_KEY = f.readline()
 
 y = YoutubeUploader(API_KEY)
-#print("GeoStatisticsKo", action_logger().uploads_within_24("uploaded_video", y.get_langs_for_channel("GeoStatisticsKo")))
-#print("GeoStatisticsJp", action_logger().uploads_within_24("uploaded_video", y.get_langs_for_channel("GeoStatisticsJp")))
-#print("GeoStatisticsEn", action_logger().uploads_within_24("uploaded_video", y.get_langs_for_channel("GeoStatisticsEn")))
-#print("GeoStatisticsGlobal", action_logger().uploads_within_24("uploaded_video", y.get_langs_for_channel("GeoStatisticsGlobal")))
 #time.sleep(10)
 
 #y.py_autogi_upload("GeoStatisticsJp", 10)
 #y.py_autogi_upload("GeoStatisticsEn", 10)
-#y.py_autogi_upload("GeoStatisticsKo", 10)
-#y.py_autogi_upload("GeoStatisticsGlobal", 10)
+#.py_autogi_upload("GeoStatisticsKo", 10)
+#.py_autogi_upload("GeoStatisticsGlobal", 10)
 
 #y.scan_uploaded_videos("ru")
 #y.scan_uploaded_videos("ja")
@@ -54,13 +50,13 @@ y = YoutubeUploader(API_KEY)
 #y.update_video_end_screens("ko")
 #y.update_video_end_screens("ru")
 
+#######################################################################
+
+
 #y.update_video_descriptions("en")
 #y.update_video_descriptions("ja")
 #y.update_video_descriptions("ko")
 #y.update_video_descriptions("ru")
-
-
-
 
 #time.sleep(8)
 #y.click_next()
@@ -94,3 +90,9 @@ y = YoutubeUploader(API_KEY)
 #y.click_image('images/Show_more.png')
 #y.press_until_show_more()
 #y.click_next()
+
+
+#print("GeoStatisticsKo", action_logger().uploads_within_24("uploaded_video", y.get_langs_for_channel("GeoStatisticsKo")))
+#print("GeoStatisticsJp", action_logger().uploads_within_24("uploaded_video", y.get_langs_for_channel("GeoStatisticsJp")))
+#print("GeoStatisticsEn", action_logger().uploads_within_24("uploaded_video", y.get_langs_for_channel("GeoStatisticsEn")))
+#print("GeoStatisticsGlobal", action_logger().uploads_within_24("uploaded_video", y.get_langs_for_channel("GeoStatisticsGlobal")))

@@ -1110,13 +1110,25 @@ class YoutubeUploader:
 
     def open_video_edit(self, edit_url, channel_name):
         webbrowser.open(edit_url)
-        time.sleep(3)
-        #if self.wrong_account():
-        #    if not self.switch_account(edit_url, channel_name):
-        #        return False
+        time.sleep(2)
 
-        for _ in range(30
-                       ):
+        for _ in range(8):
+            if not self.images_exists_and_not_exists(
+                    ['images/Save_Gray.png', 'images/Video_details.png'],
+                    ['images/Wrong_account2.png'],
+                    self.get_screenshot()):
+                time.sleep(2)
+            if self.images_exists_and_not_exists(['images/Wrong_account2.png'], [], self.get_screenshot()):
+                break
+
+        time.sleep(5)
+        if self.images_exists_and_not_exists(['images/Wrong_account2.png'], [], self.get_screenshot()):
+            webbrowser.open(f"https://studio.youtube.com/channel/{channels[channel_name]}")
+            time.sleep(5)
+            if not self.switch_account(edit_url, channels[channel_name]):
+                return False
+
+        for _ in range(30):
             if not self.images_exists_and_not_exists(
                     ['images/Save_Gray.png', 'images/Video_details.png'],
                     ['images/Wrong_account2.png'],
@@ -1142,7 +1154,7 @@ class YoutubeUploader:
         last_time_edit = self.log_action.last_time_of_record('edit_related2', id)
         if last_time_edit is not None:
             difference = datetime.now() - last_time_edit
-            if difference < timedelta(days=5):
+            if difference < timedelta(days=3):
                 return False
         for r in related:
             print(r["id"], r["snippet"]["title"])
@@ -1412,8 +1424,28 @@ class YoutubeUploader:
                 #print(f'{os.path.basename(fn)} {os.path.basename(ifn)} {self.images_exists_and_not_exists([], [ifn], screenshot)}')
         print('done')
 
+
     def switch_account(self, upload_url, channel_code):
         d = 5
+        self.click_image_from_file('images/SwitchAccount.png')
+        for channel in channels:
+            if channel_code == channels[channel]:
+                time.sleep(d)
+                self.click_image_from_file(f'images/{channel}.png', 0.92)
+                time.sleep(d)
+                if self.images_exists_and_not_exists(['images/GotIt.png'], [], self.get_screenshot()):
+                    self.click_image_from_file(f'images/GotIt.png')
+                time.sleep(d)
+                webbrowser.open(upload_url)
+                time.sleep(d)
+                if self.wrong_account():
+                    return False
+                return True
+        return False
+
+    def switch_account2(self, upload_url, channel_code):
+        d = 5
+        webbrowser.open(f"https://studio.youtube.com/channel/{channel_code}")
         self.click_image_from_file('images/SwitchAccount.png')
         for channel in channels:
             if channel_code == channels[channel]:
